@@ -70,12 +70,11 @@ static void sh_emit_inst(Inst* inst) {
     break;
 
   case LOAD:
-    emit_line("eval z=\\$m%s", sh_src_str(inst));
-    emit_line("%s=$(( $z + 0 ))", reg_names[inst->dst.reg]);
+    emit_line(": $(( %s = m%s + 0 ))", reg_names[inst->dst.reg], sh_src_str(inst));
     break;
 
   case STORE:
-    emit_line("eval m%s=$%s", sh_src_str(inst), reg_names[inst->dst.reg]);
+    emit_line(": $(( m%s = $%s ))", sh_src_str(inst), reg_names[inst->dst.reg]);
     break;
 
   case PUTC:

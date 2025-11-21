@@ -78,8 +78,8 @@ static void sh_emit_inst(Inst* inst) {
     break;
 
   case PUTC:
-    emit_line("t=$((%s&255))", sh_src_str(inst));
-    emit_line("printf \"\\\\$(printf '%%03o' $t)\"");
+    emit_line(": $(( t = (%s & 255) ))", sh_src_str(inst));
+    emit_line("printf \\\\$((t/64))$((t/8%%8))$((t%%8))");
     break;
 
   case GETC:

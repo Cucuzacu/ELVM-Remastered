@@ -2,6 +2,7 @@
 #include <target/util.h>
 
 static void sh_init_state(Data* data) {
+  emit_line("#! /bin/sh");
   for (int i = 0; i < 7; i++) {
     emit_line("%s=0", reg_names[i]);
   }

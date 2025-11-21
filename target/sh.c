@@ -1,10 +1,39 @@
 #include <ir/ir.h>
 #include <target/util.h>
 
-static void sh_init_state(Data* data) {
-  emit_line("#! /bin/sh");
+static void sh_runtime() {
+  // The POSIX standard doesn't support read -n1, so we read a full line and buffer it.
+  // The GETC state machines can be in 3 states:
+  //   Non-empty GETC_BUF buffer: take first char from buffer
+  //   Empty GETC_BUF buffer AND GETC_BUF_ENDING = -1: need to read a new line
+  //   Empty GETC_BUF buffer AND GETC_BUF_ENDING != 0: Need to output the end of line char
   emit_line("GETC_BUF=\"\"");
   emit_line("GETC_BUF_ENDING=-1 # -1: uninit, 0: EOF, 10: newline");
+  emit_line("get_char() {");
+  emit_line(" if [ -z \"$GETC_BUF\" ]; then");
+  emit_line("  if [ $GETC_BUF_ENDING != -1 ]; then");
+  emit_line("   : $(( GETC_RES = GETC_BUF_ENDING ))");
+  emit_line("   : $(( GETC_BUF_ENDING = -1 ))");
+  emit_line("   return");
+  emit_line("  fi");
+  emit_line("  GETC_BUF_ENDING=10");
+  emit_line("  IFS= read -r GETC_BUF || GETC_BUF_ENDING=0");
+  emit_line("  if [ -z \"$GETC_BUF\" ]; then");
+  emit_line("   : $(( GETC_RES = GETC_BUF_ENDING ))");
+  emit_line("   : $(( GETC_BUF_ENDING = -1 ))");
+  emit_line("   return");
+  emit_line("  fi");
+  emit_line(" fi");
+  emit_line(" GETC_BUF2=\"${GETC_BUF#?}\"");
+  emit_line(" t=\"${GETC_BUF%%\"$GETC_BUF2\"}\"");
+  emit_line(" GETC_BUF=\"$GETC_BUF2\"");
+  emit_line(" GETC_RES=$(printf '%%d' \"'$t'\")");
+  emit_line("}");
+}
+
+static void sh_init_state(Data* data) {
+  emit_line("#! /bin/sh");
+  sh_runtime();
   for (int i = 0; i < 7; i++) {
     emit_line("%s=0", reg_names[i]);
   }
@@ -91,32 +120,8 @@ static void sh_emit_inst(Inst* inst) {
     break;
 
   case GETC:
-    // The POSIX standard doesn't support read -n1, so we read a full line and buffer it.
-    // The GETC state machines can be in 3 states:
-    //   Non-empty GETC_BUF buffer: take first char from buffer
-    //   Empty GETC_BUF buffer AND GETC_BUF_ENDING = -1: need to read a new line
-    //   Empty GETC_BUF buffer AND GETC_BUF_ENDING != 0: Need to output the end of line char
-    emit_line("while :; do"); // while to allow breaking out early
-    emit_line(" if [ -z \"$GETC_BUF\" ]; then");
-    emit_line("  if [ $GETC_BUF_ENDING != -1 ]; then");
-    emit_line("   %s=$GETC_BUF_ENDING", reg_names[inst->dst.reg]);
-    emit_line("   : $(( GETC_BUF_ENDING = -1 ))");
-    emit_line("   break");
-    emit_line("  fi");
-    emit_line("  GETC_BUF_ENDING=10");
-    emit_line("  IFS= read -r GETC_BUF || GETC_BUF_ENDING=0");
-    emit_line("  if [ -z \"$GETC_BUF\" ]; then");
-    emit_line("   : $(( %s = GETC_BUF_ENDING ))", reg_names[inst->dst.reg]);
-    emit_line("   : $(( GETC_BUF_ENDING = -1 ))");
-    emit_line("   break");
-    emit_line("  fi");
-    emit_line(" fi");
-    emit_line(" GETC_BUF2=\"${GETC_BUF#?}\"");
-    emit_line(" t=\"${GETC_BUF%%\"$GETC_BUF2\"}\"");
-    emit_line(" GETC_BUF=\"$GETC_BUF2\"");
-    emit_line(" %s=$(printf '%%d' \"'$t'\")", reg_names[inst->dst.reg]);
-    emit_line(" break");
-    emit_line("done");
+    emit_line("get_char");
+    emit_line(": $(( %s = GETC_RES ))", reg_names[inst->dst.reg]);
     break;
 
   case EXIT:

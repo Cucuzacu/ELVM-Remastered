@@ -26,7 +26,7 @@ static const char* sh_src_str(Inst* inst) {
   return sh_value_str(&inst->src);
 }
 
-static const char* sh_cmp_str(Inst* inst) {
+static const char* sh_cmp_str(Inst* inst, const char * dest) {
   int op = normalize_cond(inst->op, 0);
   const char* op_str;
   switch (op) {
@@ -47,8 +47,13 @@ static const char* sh_cmp_str(Inst* inst) {
     default:
       error("oops");
   }
-  return format("$(( $%s %s %s ))",
-                reg_names[inst->dst.reg], op_str, sh_src_str(inst));
+  if (dest) {
+    return format(": $(( %s = $%s %s %s ))",
+                  dest, reg_names[inst->dst.reg], op_str, sh_src_str(inst));
+  } else {
+    return format("$(( $%s %s %s ))",
+                  reg_names[inst->dst.reg], op_str, sh_src_str(inst));
+  }
 }
 
 static void sh_emit_inst(Inst* inst) {
@@ -58,13 +63,13 @@ static void sh_emit_inst(Inst* inst) {
     break;
 
   case ADD:
-    emit_line("%s=$(( ($%s + %s) & " UINT_MAX_STR " ))",
+    emit_line(": $(( %s = (($%s + %s) & " UINT_MAX_STR ") ))",
               reg_names[inst->dst.reg],
               reg_names[inst->dst.reg], sh_src_str(inst));
     break;
 
   case SUB:
-    emit_line("%s=$(( ($%s - %s) & " UINT_MAX_STR "))",
+    emit_line(": $(( %s = (($%s - %s) & " UINT_MAX_STR ") ))",
               reg_names[inst->dst.reg],
               reg_names[inst->dst.reg], sh_src_str(inst));
     break;
@@ -107,8 +112,8 @@ static void sh_emit_inst(Inst* inst) {
   case GT:
   case LE:
   case GE:
-    emit_line("%s=%s",
-              reg_names[inst->dst.reg], sh_cmp_str(inst));
+    emit_line("%s",
+              sh_cmp_str(inst, reg_names[inst->dst.reg]));
     break;
 
   case JEQ:
@@ -117,13 +122,13 @@ static void sh_emit_inst(Inst* inst) {
   case JGT:
   case JLE:
   case JGE:
-    emit_line("if [ %s = 1 ]; then", sh_cmp_str(inst));
-    emit_line(" pc=$(( %s - 1 ))", sh_value_str(&inst->jmp));
+    emit_line("if [ %s = 1 ]; then", sh_cmp_str(inst, NULL));
+    emit_line("  : $(( pc = %s - 1 ))", sh_value_str(&inst->jmp));
     emit_line("fi");
     break;
 
   case JMP:
-    emit_line("pc=$(( %s - 1 ))", sh_value_str(&inst->jmp));
+    emit_line(": $(( pc = %s - 1 ))", sh_value_str(&inst->jmp));
     break;
 
   default:
@@ -135,7 +140,7 @@ void target_sh(Module* module) {
   sh_init_state(module->data);
   emit_line("");
 
-  emit_line("while true; do");
+  emit_line("while :; do");
   emit_line("case $pc in");
   int prev_pc = -1;
   for (Inst* inst = module->text; inst; inst = inst->next) {
@@ -156,6 +161,6 @@ void target_sh(Module* module) {
   dec_indent();
   emit_line("esac");
   emit_line("");
-  emit_line("pc=$(( $pc + 1 ))");
+  emit_line(": $(( pc = pc + 1 ))");
   emit_line("done");
 }

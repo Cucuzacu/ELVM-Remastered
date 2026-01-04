@@ -48,7 +48,7 @@ Now, you can run this with eli or compile it with elc!
 
 
 
-For random numbers, use **random.h**. Do **setrand(some random seed)** to set the seed. After that, do **rand()** for a random number.
+For random numbers, use **random.h**. Do **setseed(some random seed)** to set the seed. After that, do **rand()** for a random number.
 
 
 

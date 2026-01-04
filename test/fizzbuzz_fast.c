@@ -1,4 +1,4 @@
-#include "../libc/_raw_print.h"
+#include "_raw_print.h"
 
 int main() {
   int i;

@@ -1,5 +1,8 @@
 # ELVM Compiler Infrastructure
 
+Original project: https://github.com/shinh/elvm
+Read ACTUALREADME.MD for information about ELVM-Remastered!
+
 [![Build Status](https://travis-ci.org/shinh/elvm.svg?branch=master)](http://travis-ci.org/shinh/elvm)
 
 ELVM is similar to LLVM but dedicated to [Esoteric
@@ -13,7 +16,7 @@ Unlike LLVM bitcode, EIR is designed to be extremely simple, so
 there's more chance we can write a translator from EIR to an esoteric
 language.
 
-Currently, there are 60 backends:
+Currently, there are 60 backends:(actually 59 but ok)
 
 1. *Acc!!*
 1. Aheui

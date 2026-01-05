@@ -35,7 +35,7 @@ static void wasi_emit_func_prologue(int func_id) {
     emit_line("(loop $loop0");
     inc_indent();
     // "for %d <= pc && pc < %d {", func_id * CHUNKED_FUNC_SIZE, (func_id + 1) * CHUNKED_FUNC_SIZE
-    emit_line("(br_if 1 (i32.or (i32.gt_u (i32.const %d) (get_global $pc)) (i32.ge_u (get_global $pc) (i32.const %d))))",
+    emit_line("(br_if 1 (i32.or (i32.gt_u (i32.const %d) (global.get $pc)) (i32.ge_u (global.get $pc) (i32.const %d))))",
               func_id * CHUNKED_FUNC_SIZE, (func_id + 1) * CHUNKED_FUNC_SIZE);
     emit_line("(if");
     inc_indent();
@@ -50,7 +50,7 @@ static void wasi_emit_func_epilogue(void) {
     emit_line(") ;; then");
     dec_indent();
     emit_line(") ;; if");
-    emit_line("(set_global $pc (i32.add (get_global $pc) (i32.const 1)))");
+    emit_line("(global.set $pc (i32.add (global.get $pc) (i32.const 1)))");
     emit_line("(br $loop0)");
     dec_indent();
     emit_line(") ;; loop $loop0");
@@ -65,7 +65,7 @@ static void wasi_emit_pc_change(int pc) {
     emit_line(") ;; if");
     emit_line("(if");
     inc_indent();
-    emit_line("(i32.eq (get_global $pc) (i32.const %d))", pc);
+    emit_line("(i32.eq (global.get $pc) (i32.const %d))", pc);
     emit_line("(then");
     inc_indent();
 }
@@ -73,7 +73,7 @@ static void wasi_emit_pc_change(int pc) {
 // wasm_get_value
 static const char* wasi_get_value(Value *v) {
   if (v->type == REG) {
-    return format("(get_global %s)", reg_names[v->reg]);
+    return format("(global.get %s)", reg_names[v->reg]);
   } else if (v->type == IMM) {
     return format("(i32.const %d)", v->imm);
   } else {
@@ -107,32 +107,32 @@ const char* wasi_cmp_str(Inst* inst) {
     default:
       error("oops");
   }
-  return format("(%s (get_global %s) %s)", op_str, reg_names[inst->dst.reg], wasi_get_value(&inst->src));
+  return format("(%s (global.get %s) %s)", op_str, reg_names[inst->dst.reg], wasi_get_value(&inst->src));
 }
 
 static void wasi_emit_inst(Inst* inst) {
     switch (inst->op) {
     case MOV:
-        emit_line("(set_global %s %s)", reg_names[inst->dst.reg], wasi_get_value(&inst->src));
+        emit_line("(global.set %s %s)", reg_names[inst->dst.reg], wasi_get_value(&inst->src));
         break;
 
     case ADD:
-        emit_line("(set_global %s (i32.and (i32.add (get_global %s) %s) (i32.const " UINT_MAX_STR ")))",
+        emit_line("(global.set %s (i32.and (i32.add (global.get %s) %s) (i32.const " UINT_MAX_STR ")))",
                   reg_names[inst->dst.reg], reg_names[inst->dst.reg], wasi_get_value(&inst->src));
         break;
 
     case SUB:
-        emit_line("(set_global %s (i32.and (i32.sub (get_global %s) %s) (i32.const " UINT_MAX_STR ")))",
+        emit_line("(global.set %s (i32.and (i32.sub (global.get %s) %s) (i32.const " UINT_MAX_STR ")))",
                   reg_names[inst->dst.reg], reg_names[inst->dst.reg], wasi_get_value(&inst->src));
         break;
 
     case LOAD:
-        emit_line("(set_global %s (i32.load (i32.mul (i32.const 4) %s)))",
+        emit_line("(global.set %s (i32.load (i32.mul (i32.const 4) %s)))",
                   reg_names[inst->dst.reg], wasi_get_value(&inst->src));
         break;
 
     case STORE:
-        emit_line("(i32.store (i32.mul (i32.const 4) %s) (get_global %s))",
+        emit_line("(i32.store (i32.mul (i32.const 4) %s) (global.get %s))",
                   wasi_get_value(&inst->src), reg_names[inst->dst.reg]);
         break;
 
@@ -150,7 +150,7 @@ static void wasi_emit_inst(Inst* inst) {
                   UINT_MAX_STR);
         emit_line("(drop (call $__wasi_fd_read (i32.const 0) (i32.add (i32.mul (i32.const 4) (i32.const %s)) (i32.const 8)) (i32.const 1) (i32.add (i32.mul (i32.const 4) (i32.const %s)) (i32.const 16))))",
                   UINT_MAX_STR, UINT_MAX_STR);
-        emit_line("(set_global %s (i32.load (i32.add (i32.mul (i32.const 4) (i32.const %s)) (i32.const 4))))",
+        emit_line("(global.set %s (i32.load (i32.add (i32.mul (i32.const 4) (i32.const %s)) (i32.const 4))))",
                   reg_names[inst->dst.reg], UINT_MAX_STR);
         break;
 
@@ -173,12 +173,12 @@ static void wasi_emit_inst(Inst* inst) {
         emit_line("%s", wasi_cmp_str(inst));
         emit_line("(then");
         inc_indent();
-        emit_line("(set_global %s (i32.const 1))", reg_names[inst->dst.reg]);
+        emit_line("(global.set %s (i32.const 1))", reg_names[inst->dst.reg]);
         dec_indent();
         emit_line(") ;; then");
         emit_line("(else");
         inc_indent();
-        emit_line("(set_global %s (i32.const 0))", reg_names[inst->dst.reg]);
+        emit_line("(global.set %s (i32.const 0))", reg_names[inst->dst.reg]);
         dec_indent();
         emit_line(") ;; else");
         dec_indent();
@@ -197,7 +197,7 @@ static void wasi_emit_inst(Inst* inst) {
         emit_line("%s", wasi_cmp_str(inst));
         emit_line("(then");
         inc_indent();
-        emit_line("(set_global $pc %s)", wasi_get_value(&inst->jmp));
+        emit_line("(global.set $pc %s)", wasi_get_value(&inst->jmp));
         emit_line("(br $loop0)");
         dec_indent();
         emit_line(") ;; then");
@@ -213,9 +213,12 @@ static void wasi_emit_inst(Inst* inst) {
 void target_wasi(Module* module) {
     emit_line("(module");
     inc_indent();
-    emit_line("(import \"wasi_unstable\" \"fd_write\" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))");
-    emit_line("(import \"wasi_unstable\" \"fd_read\" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))");
-    emit_line("(import \"wasi_unstable\" \"proc_exit\" (func $__wasi_proc_exit (param i32)))");
+    
+    emit_line("(type $t0 (func))"); 
+
+    emit_line("(import \"wasi_snapshot_preview1\" \"fd_write\" (func $__wasi_fd_write (param i32 i32 i32 i32) (result i32)))");
+    emit_line("(import \"wasi_snapshot_preview1\" \"fd_read\" (func $__wasi_fd_read (param i32 i32 i32 i32) (result i32)))");
+    emit_line("(import \"wasi_snapshot_preview1\" \"proc_exit\" (func $__wasi_proc_exit (param i32)))");
     emit_line("(memory (export \"memory\") %d)", WASI_MEM_SIZE_IN_PAGES);
 
     reg_names = WASI_REG_NAMES;
@@ -228,24 +231,25 @@ void target_wasi(Module* module) {
     int num_funcs = emit_chunked_main_loop(module->text, wasi_emit_func_prologue, wasi_emit_func_epilogue, wasi_emit_pc_change, wasi_emit_inst);
 
     emit_line("");
-    emit_line("(table anyfunc");
-    inc_indent();
-    emit_line("(elem");
+    emit_line("(table %d funcref)", num_funcs);
+
+    emit_line("(elem (i32.const 0)");
     inc_indent();
     for (int i = 0; i < num_funcs; i++) {
         emit_line("$f%d", i);
     }
     dec_indent();
-    emit_line(") ;; elem");
-    dec_indent();
-    emit_line(") ;; table");
+    emit_line(")");
     emit_line("");
+
     emit_line("(func $main");
     inc_indent();
     emit_line("(call $init_memory)");
     emit_line("(loop $loop_main");
     inc_indent();
-    emit_line("(call_indirect (i32.div_u (get_global $pc) (i32.const %d)))", CHUNKED_FUNC_SIZE);
+
+    emit_line("(call_indirect (type $t0) (i32.div_u (global.get $pc) (i32.const %d)))", CHUNKED_FUNC_SIZE);
+    
     emit_line("(br $loop_main)");
     dec_indent();
     emit_line(") ;; loop $loop_main");

@@ -22,9 +22,9 @@ static void wasm_emit_func_prologue(int func_id) {
   inc_indent();
   emit_line("(loop $while0");
   inc_indent();
-  emit_line("(if (i32.and (i32.le_s (i32.const %d) (get_global $pc))",
+  emit_line("(if (i32.and (i32.le_s (i32.const %d) (global.get $pc))",
             func_id * CHUNKED_FUNC_SIZE);
-  emit_line("             (i32.lt_s (get_global $pc) (i32.const %d)))",
+  emit_line("             (i32.lt_s (global.get $pc) (i32.const %d)))",
             (func_id + 1) * CHUNKED_FUNC_SIZE);
   inc_indent();
   emit_line("(then");
@@ -32,7 +32,7 @@ static void wasm_emit_func_prologue(int func_id) {
   emit_line("(block $while0body");
   inc_indent();
   // dummy first case
-  emit_line("(if (i32.eq (get_global $pc) (i32.const -1))");
+  emit_line("(if (i32.eq (global.get $pc) (i32.const -1))");
   inc_indent();
   emit_line("(then");
   inc_indent();
@@ -47,7 +47,7 @@ static void wasm_emit_func_epilogue(void) {
   emit_line("");
   dec_indent();
   emit_line(")"); // block $while0body
-  emit_line("(set_global $pc (i32.add (get_global $pc) (i32.const 1)))");
+  emit_line("(global.set $pc (i32.add (global.get $pc) (i32.const 1)))");
   emit_line("(br $while0)");
   dec_indent();
   emit_line(")"); // then
@@ -66,7 +66,7 @@ static void wasm_emit_pc_change(int pc) {
   dec_indent();
   emit_line(")"); // if
   emit_line("");
-  emit_line("(if (i32.eq (get_global $pc) (i32.const %d))", pc);
+  emit_line("(if (i32.eq (global.get $pc) (i32.const %d))", pc);
   inc_indent();
   emit_line("(then");
   inc_indent();
@@ -74,7 +74,7 @@ static void wasm_emit_pc_change(int pc) {
 
 static const char* wasm_get_value(Value *v) {
   if (v->type == REG) {
-    return format("(get_global $%s)", reg_names[v->reg]);
+    return format("(global.get $%s)", reg_names[v->reg]);
   } else if (v->type == IMM) {
     return format("(i32.const %d)", v->imm);
   } else {
@@ -101,33 +101,33 @@ static const char* wasm_cmp_expr(Inst* inst) {
     default:
       error("oops");
   }
-  return format("(%s (get_global $%s) %s)",
+  return format("(%s (global.get $%s) %s)",
                 op_str, reg_names[inst->dst.reg], wasm_get_value(&inst->src));
 }
 
 static void wasm_emit_inst(Inst* inst) {
   switch (inst->op) {
   case MOV:
-    emit_line("(set_global $%s %s)", reg_names[inst->dst.reg], wasm_get_value(&inst->src));
+    emit_line("(global.set $%s %s)", reg_names[inst->dst.reg], wasm_get_value(&inst->src));
     break;
 
   case ADD:
-    emit_line("(set_global $%s (i32.and (i32.add (get_global $%s) %s) (i32.const " UINT_MAX_STR ")))",
+    emit_line("(global.set $%s (i32.and (i32.add (global.get $%s) %s) (i32.const " UINT_MAX_STR ")))",
               reg_names[inst->dst.reg], reg_names[inst->dst.reg], wasm_get_value(&inst->src));
     break;
 
   case SUB:
-    emit_line("(set_global $%s (i32.and (i32.sub (get_global $%s) %s) (i32.const " UINT_MAX_STR ")))",
+    emit_line("(global.set $%s (i32.and (i32.sub (global.get $%s) %s) (i32.const " UINT_MAX_STR ")))",
               reg_names[inst->dst.reg], reg_names[inst->dst.reg], wasm_get_value(&inst->src));
     break;
 
   case LOAD:
-    emit_line("(set_global $%s (i32.load (i32.shl %s (i32.const 2))))",
+    emit_line("(global.set $%s (i32.load (i32.shl %s (i32.const 2))))",
               reg_names[inst->dst.reg], wasm_get_value(&inst->src));
     break;
 
   case STORE:
-    emit_line("(i32.store (i32.shl %s (i32.const 2)) (get_global $%s))",
+    emit_line("(i32.store (i32.shl %s (i32.const 2)) (global.get $%s))",
               wasm_get_value(&inst->src), reg_names[inst->dst.reg]);
     break;
 
@@ -136,7 +136,7 @@ static void wasm_emit_inst(Inst* inst) {
     break;
 
   case GETC:
-    emit_line("(set_global $%s (call $getchar))", reg_names[inst->dst.reg]);
+    emit_line("(global.set $%s (call $getchar))", reg_names[inst->dst.reg]);
     break;
 
   case EXIT:
@@ -152,7 +152,7 @@ static void wasm_emit_inst(Inst* inst) {
   case GT:
   case LE:
   case GE:
-    emit_line("(set_global $%s %s)", reg_names[inst->dst.reg], wasm_cmp_expr(inst));
+    emit_line("(global.set $%s %s)", reg_names[inst->dst.reg], wasm_cmp_expr(inst));
     break;
 
   case JEQ:
@@ -161,12 +161,12 @@ static void wasm_emit_inst(Inst* inst) {
   case JGT:
   case JLE:
   case JGE:
-    emit_line("(if %s (then (set_global $pc %s) (br $while0)))",
+    emit_line("(if %s (then (global.set $pc %s) (br $while0)))",
               wasm_cmp_expr(inst), wasm_get_value(&inst->jmp));
     break;
 
   case JMP:
-    emit_line("(set_global $pc %s)", wasm_get_value(&inst->jmp));
+    emit_line("(global.set $pc %s)", wasm_get_value(&inst->jmp));
     emit_line("(br $while0)");
     break;
 
@@ -176,7 +176,20 @@ static void wasm_emit_inst(Inst* inst) {
 }
 
 void target_wasm(Module* module) {
-  wasm_init_state();
+  emit_line("(module");
+  inc_indent();
+
+  emit_line("(type $t0 (func))");
+
+  emit_line("(import \"env\" \"getchar\" (func $getchar (result i32)))");
+  emit_line("(import \"env\" \"putchar\" (func $putchar (param i32)))");
+  emit_line("(import \"env\" \"exit\" (func $exit))");
+  
+  for (int i = 0; i < 7; i++) {
+    emit_line("(global $%s (mut i32) (i32.const 0))", reg_names[i]);
+  }
+
+  emit_line("(memory (export \"memory\") %d)", WASM_MEM_SIZE_IN_PAGES);
 
   int num_funcs = emit_chunked_main_loop(module->text,
                                          wasm_emit_func_prologue,
@@ -185,23 +198,19 @@ void target_wasm(Module* module) {
                                          wasm_emit_inst);
 
   emit_line("");
-  emit_line("(table anyfunc");
-  inc_indent();
-  emit_line("(elem");
+  emit_line("(table %d funcref)", num_funcs);
+  emit_line("(elem (i32.const 0)");
   inc_indent();
   for (int i = 0; i < num_funcs; i++) {
     emit_line("$func%d", i);
   }
   dec_indent();
-  emit_line(")"); // elem
-  dec_indent();
-  emit_line(")"); // table
+  emit_line(")");
 
   emit_line("");
-  emit_line("(func (export \"wasmmain\")");
+  emit_line("(func (export \"_start\")"); // Renamed to _start for convention
   inc_indent();
-  emit_line("(local $chunk i32)");
-
+  
   Data* data = module->data;
   for (int mp = 0; data; data = data->next, mp++) {
     if (data->v) {
@@ -209,16 +218,15 @@ void target_wasm(Module* module) {
     }
   }
 
-  emit_line("");
   emit_line("(loop $mainloop");
   inc_indent();
-  emit_line("(call_indirect (i32.div_u (get_global $pc) (i32.const %d)))", CHUNKED_FUNC_SIZE);
+  emit_line("(call_indirect (type $t0) (i32.div_u (global.get $pc) (i32.const %d)))", CHUNKED_FUNC_SIZE);
   emit_line("(br $mainloop)");
   dec_indent();
-  emit_line(")"); // loop $mainloop
+  emit_line(")");
 
   dec_indent();
-  emit_line(")"); // func wasmmain
+  emit_line(")");
   dec_indent();
-  emit_line(")"); // module
+  emit_line(")");
 }

@@ -4,8 +4,6 @@ Original project: https://github.com/shinh/elvm
 
 Read ACTUALREADME.MD for information about ELVM-Remastered!
 
-[![Build Status](https://travis-ci.org/shinh/elvm.svg?branch=master)](http://travis-ci.org/shinh/elvm)
-
 ELVM is similar to LLVM but dedicated to [Esoteric
 Languages](https://esolangs.org/wiki/Main_Page). This project consists
 of two components - frontend and backend. Currently, the only frontend
@@ -17,7 +15,7 @@ Unlike LLVM bitcode, EIR is designed to be extremely simple, so
 there's more chance we can write a translator from EIR to an esoteric
 language.
 
-Currently, there are 60 backends:(actually 59 but ok)
+Currently, there are 60 backends:
 
 1. *Acc!!*
 1. Aheui
@@ -55,6 +53,7 @@ Currently, there are 60 backends:(actually 59 but ok)
 1. Perl5 (by [@mackee](https://github.com/mackee/))
 1. PHP (by [@zonuexe](https://github.com/zonuexe/))
 1. Piet
+1. Pietasm(whatever that is)
 1. POSIX Shell
 1. Python
 1. Ruby

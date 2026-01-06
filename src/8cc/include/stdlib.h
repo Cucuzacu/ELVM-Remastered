@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include "_raw_print.h"
 #include <ctype.h>
+#include <string.h>
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
@@ -184,6 +185,14 @@ void qsort(void* vbase, size_t nmemb, size_t size,
   qsort(base, (size_t)(left - base) / size, size, compar);
   qsort(right, (size_t)(base + nmemb * size - right) / size,
         size, compar);
+}
+
+void* realloc(void* ptr, size_t size) {
+    if (!ptr) return malloc(size);
+    if (size == 0) return NULL;
+    void* new_ptr = malloc(size);
+    memcpy(new_ptr, ptr, size); 
+    return new_ptr;
 }
 
 #endif  // ELVM_LIBC_STDLIB_H_

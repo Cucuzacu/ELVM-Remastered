@@ -8,7 +8,7 @@ int main()
     long hex_val;
     char secret[10];
 
-    const char* input_str = "Alice 25 0xdead";
+    const char* input_str = "Cucuzacu 25 0x1a2b";
     int count = sscanf(input_str, "%s %d %x", name, &age, &hex_val);
     
     printf("Test 1 (sscanf):\n");
